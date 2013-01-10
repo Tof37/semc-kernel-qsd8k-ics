@@ -146,8 +146,10 @@
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_SIZE     0x00278780
+#define MSM_FB_NUM  3
 #else
 #define MSM_FB_SIZE     0x001B0500
+#define MSM_FB_NUM  2	
 #endif
 //#define MSM_FB_SIZE		0x00300000 // 0x00500000
 
@@ -780,7 +782,7 @@ static void __init msm_mddi_tmd_fwvga_display_device_init(void)
 	panel_data->panel_info.clk_rate = 200000000;
 	panel_data->panel_info.clk_min =  192000000;
 	panel_data->panel_info.clk_max =  200000000;
-	panel_data->panel_info.fb_num = 2;
+	panel_data->panel_info.fb_num = MSM_FB_NUM;
 
 	panel_data->panel_info.mddi.vdopkt = MDDI_DEFAULT_PRIM_PIX_ATTR;
 
