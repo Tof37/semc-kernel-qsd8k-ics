@@ -150,23 +150,26 @@ static enum power_supply_property max17040_battery_properties[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 };
 
+/*
 static enum power_supply_property max17040_power_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
-
 static char *max17040_supply_list[] = {
 	"battery",
 };
+*/
+
 
 /* Fuel gauge dedicated attributes */
 static ssize_t max17040_show_property(struct device *dev,
 				      struct device_attribute *attr,
 				      char *buf);
 
+/*
 static int max17040_get_power_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val);
-
+*/
 static int max17040_get_battery_property(struct power_supply *psy,
 					 enum power_supply_property psp,
 					 union power_supply_propval *val);
@@ -179,7 +182,7 @@ static struct power_supply max17040_power_supplies[] = {
 		.num_properties = ARRAY_SIZE(max17040_battery_properties),
 		.get_property = max17040_get_battery_property,
 	},
-	{
+/*	{
 		.name = "usb",
 		.type = POWER_SUPPLY_TYPE_USB,
 		.supplied_to = max17040_supply_list,
@@ -197,6 +200,7 @@ static struct power_supply max17040_power_supplies[] = {
 		.num_properties = ARRAY_SIZE(max17040_power_properties),
 		.get_property = max17040_get_power_property,
 	},
+*/
 };
 
 /* Registration result to the power supply of max17040_power_supplies[] */
@@ -206,6 +210,7 @@ static int max17040_register_flg[] = {
 	MAX17040_PORWER_SUPPLY_NOT_REGISTER,	/* ac */
 };
 
+/*
 static int max17040_get_power_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -231,7 +236,7 @@ static int max17040_get_power_property(struct power_supply *psy,
 
 	return res;
 }
-
+*/
 static int max17040_get_battery_property(struct power_supply *psy,
 					 enum power_supply_property psp,
 					 union power_supply_propval *val)

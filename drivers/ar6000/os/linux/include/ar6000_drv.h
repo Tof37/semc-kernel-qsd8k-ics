@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------
 // <copyright file="ar6000_drv.h" company="Atheros">
 //    Copyright (c) 2004-2009 Atheros Corporation.  All rights reserved.
-// 
+//
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 2 as
 // published by the Free Software Foundation;
@@ -259,6 +259,16 @@ typedef struct ar6_softc {
     A_UINT8                 arPrevCrypto;
     A_UINT8                 arPairwiseCrypto;
     A_UINT8                 arPairwiseCryptoLen;
+#if 0
+    //Add field for the AP mode, we need to store some specific information
+    //But we don't know yet if we are in AP or STA mode at this time
+    A_UINT8                 arPairwiseApCrypto;
+    //Add some padding in order to keep structure alignment
+    A_UINT8                 padding1;
+    A_UINT8                 padding2;
+    A_UINT8                 padding4;
+    //Finished AP mode specific padding
+#endif
     A_UINT8                 arGroupCrypto;
     A_UINT8                 arGroupCryptoLen;
     A_UINT8                 arDefTxKeyIndex;

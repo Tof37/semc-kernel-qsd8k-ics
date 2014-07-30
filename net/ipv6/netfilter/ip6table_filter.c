@@ -144,6 +144,7 @@ static int __init ip6table_filter_init(void)
 {
 	int ret;
 
+	/* Entry 1 is the FORWARD hook */
 	initial_table.entries[1].target.verdict = forward?-2:-1;
 
 	ret = register_pernet_subsys(&ip6table_filter_net_ops);

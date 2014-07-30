@@ -2,7 +2,7 @@
 // <copyright file="ar6000_drv.c" company="Atheros">
 //    Copyright (c) 2004-2009 Atheros Corporation.  All rights reserved.
 //    Copyright (C) 2010 Sony Ericsson Mobile Communications AB
-// 
+//
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 2 as
 // published by the Free Software Foundation;
@@ -1600,7 +1600,7 @@ static void ar6000_enable_mmchost_detect_change(int enable)
     char buf[3];
     int length;
     length = snprintf(buf, sizeof(buf), "%d\n", enable ? 1 : 0);
-    if (ar6000_readwrite_file("/sys/devices/platform/" MMC_MSM_DEV "/detect_change", 
+    if (ar6000_readwrite_file("/sys/devices/platform/" MMC_MSM_DEV "/detect_change",
                                NULL, buf, length) < 0) {
         /* fall back to polling */
         ar6000_readwrite_file("/sys/devices/platform/" MMC_MSM_DEV "/polling", NULL, buf, length);
@@ -2503,6 +2503,7 @@ void ar6000_init_profile_info(AR_SOFTC_T *ar)
     ar->arDot11AuthMode      = OPEN_AUTH;
     ar->arAuthMode           = NONE_AUTH;
     ar->arPairwiseCrypto     = NONE_CRYPT;
+    //ar->arPairwiseApCrypto   = NONE_CRYPT;
     ar->arPairwiseCryptoLen  = 0;
     ar->arGroupCrypto        = NONE_CRYPT;
     ar->arGroupCryptoLen     = 0;
@@ -4315,7 +4316,7 @@ ar6000_disconnect_event(AR_SOFTC_T *ar, A_UINT8 reason, A_UINT8 *bssid,
 
     if (NO_NETWORK_AVAIL != reason)
     {
-        union iwreq_data wrqu;        
+        union iwreq_data wrqu;
         A_MEMZERO(&wrqu, sizeof(wrqu));
         A_MEMCPY(wrqu.addr.sa_data, "\x00\x00\x00\x00\x00\x00", IEEE80211_ADDR_LEN);
         wrqu.addr.sa_family = ARPHRD_ETHER;
@@ -5409,6 +5410,9 @@ ar6000_ap_mode_profile_commit(struct ar6_softc *ar)
         return -ECHRNG;
     }
 
+    //Force change to use arPairwiseApCrypto.
+    //ar->arPairwiseCrypto = ar->arPairwiseApCrypto;
+
     if(ar->arPairwiseCrypto != ar->arGroupCrypto) {
         A_PRINTF("Mixed cipher not supported in AP mode\n");
         return -EOPNOTSUPP;
@@ -5502,7 +5506,7 @@ ar6000_connect_to_ap(struct ar6_softc *ar)
     */
     if((ar->arWmiReady == TRUE) && (ar->arSsidLen > 0) && ar->arNetworkType!=AP_NETWORK)
     {
-        A_STATUS status; 
+        A_STATUS status;
         if((ADHOC_NETWORK != ar->arNetworkType) &&
            (NONE_AUTH==ar->arAuthMode)          &&
            (WEP_CRYPT==ar->arPairwiseCrypto)) {
@@ -5532,7 +5536,7 @@ ar6000_connect_to_ap(struct ar6_softc *ar)
         if ((ar->arNetworkType == INFRA_NETWORK)) {
             wmi_listeninterval_cmd(ar->arWmi, 1000, 0);
         }
-        
+
         ar->arConnectPending = TRUE;
 
 	ar->wmm_vi_throttle_flag = 0;
@@ -5552,8 +5556,8 @@ ar6000_connect_to_ap(struct ar6_softc *ar)
         }
 
         ar->arPrevCrypto = ar->arPairwiseCrypto;
-        
-        return status;    
+
+        return status;
     }
     return A_ERROR;
 }

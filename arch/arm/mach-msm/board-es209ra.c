@@ -1,57 +1,18 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora Forum nor
- *       the names of its contributors may be used to endorse or promote
- *       products derived from this software without specific prior written
- *       permission.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * Alternatively, provided that this notice is retained in full, this software
- * may be relicensed by the recipient under the terms of the GNU General Public
- * License version 2 ("GPL") and only version 2, in which case the provisions of
- * the GPL apply INSTEAD OF those given above.  If the recipient relicenses the
- * software under the GPL, then the identification text in the MODULE_LICENSE
- * macro must be changed to reflect "GPLv2" instead of "Dual BSD/GPL".  Once a
- * recipient changes the license terms to the GPL, subsequent recipients shall
- * not relicense under alternate licensing terms, including the BSD or dual
- * BSD/GPL terms.  In addition, the following license statement immediately
- * below and between the words START and END shall also then apply when this
- * software is relicensed under the GPL:
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * START
- *
- * This program is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 and only version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * END
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
  *
  */
 
@@ -105,7 +66,12 @@
 #include "smd_private.h"
 #include "proc_comm.h"
 #include <linux/msm_kgsl.h>
+
+#ifdef CONFIG_USB_G_ANDROID
 #include <linux/usb/android.h>
+#include <mach/usbdiag.h>
+#endif
+
 #include "board-es209ra.h"
 #include "board-es209ra-keypad.h"
 #ifdef CONFIG_ES209RA_HEADSET
@@ -143,6 +109,12 @@
 #define MSM_PMEM_SMI_SIZE	0x01500000
 
 #define MSM_FB_BASE		0x02B00000
+
+#ifdef CONFIG_FB_MSM_HDPI
+#define MSM_PMEM_SF_SIZE  0x1C00000
+#else
+#define MSM_PMEM_SF_SIZE  0x1600000
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_SIZE     0x00278780
@@ -218,21 +190,18 @@ static struct platform_device ram_console_device = {
         .resource       = ram_console_resources,
 };
 
-static struct usb_mass_storage_platform_data mass_storage_pdata = {
-        .nluns = 1,
-        .vendor = "SEMC",
-        .product = "Mass Storage",
-        .release = 0x0100,
-
+#ifdef CONFIG_USB_G_ANDROID
+static struct android_usb_platform_data android_usb_pdata = {
 };
 
-static struct platform_device usb_mass_storage_device = {
-        .name = "usb_mass_storage",
-        .id = -1,
-        .dev = {
-                .platform_data = &mass_storage_pdata,
-                },
+static struct platform_device android_usb_device = {
+        .name       = "android_usb",
+        .id         = -1,
+        .dev        = {
+                .platform_data = &android_usb_pdata,
+        },
 };
+#endif
 
 
 static struct platform_device hs_device = {
@@ -266,178 +235,31 @@ static void msm_fsusb_setup_gpio(unsigned int enable)
 #endif
 
 #define MSM_USB_BASE              ((unsigned)addr)
-static unsigned ulpi_read(void __iomem *addr, unsigned reg)
+static struct vreg *vreg_usb;
+static void msm_hsusb_vbus_power(unsigned phy_info, int on)
 {
-	unsigned timeout = 100000;
-
-	/* initiate read operation */
-	writel(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
-	       USB_ULPI_VIEWPORT);
-
-	/* wait for completion */
-	while ((readl(USB_ULPI_VIEWPORT) & ULPI_RUN) && (--timeout))
-		cpu_relax();
-
-	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_read: timeout %08x\n",
-			readl(USB_ULPI_VIEWPORT));
-		return 0xffffffff;
+	switch (PHY_TYPE(phy_info)) {
+	case USB_PHY_INTEGRATED:
+		if (on)
+			msm_hsusb_vbus_powerup();
+		else
+			msm_hsusb_vbus_shutdown();
+		break;
+	case USB_PHY_SERIAL_PMIC:
+		if (on)
+			vreg_enable(vreg_usb);
+		else
+			vreg_disable(vreg_usb);
+		break;
+	default:
+		pr_err("%s: undefined phy type ( %X ) \n", __func__,
+						phy_info);
 	}
-	return ULPI_DATA_READ(readl(USB_ULPI_VIEWPORT));
 }
 
-static int ulpi_write(void __iomem *addr, unsigned val, unsigned reg)
-{
-	unsigned timeout = 10000;
-
-	/* initiate write operation */
-	writel(ULPI_RUN | ULPI_WRITE |
-	       ULPI_ADDR(reg) | ULPI_DATA(val),
-	       USB_ULPI_VIEWPORT);
-
-	/* wait for completion */
-	while ((readl(USB_ULPI_VIEWPORT) & ULPI_RUN) && (--timeout))
-		cpu_relax();
-
-	if (timeout == 0) {
-		printk(KERN_ERR "ulpi_write: timeout\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-struct clk *hs_clk, *phy_clk;
-#define CLKRGM_APPS_RESET_USBH      37
-#define CLKRGM_APPS_RESET_USB_PHY   34
-static void msm_hsusb_apps_reset_link(int reset)
-{
-	if (reset)
-		clk_reset(hs_clk, CLK_RESET_ASSERT);
-	else
-		clk_reset(hs_clk, CLK_RESET_DEASSERT);
-}
-
-static void msm_hsusb_apps_reset_phy(void)
-{
-	clk_reset(phy_clk, CLK_RESET_ASSERT);
-	msleep(1);
-	clk_reset(phy_clk, CLK_RESET_DEASSERT);
-}
-
-#define ULPI_VERIFY_MAX_LOOP_COUNT  3
-static int msm_hsusb_phy_verify_access(void __iomem *addr)
-{
-	int temp;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		if (ulpi_read(addr, ULPI_DEBUG) != (unsigned)-1)
-			break;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	if (temp == ULPI_VERIFY_MAX_LOOP_COUNT) {
-		pr_err("%s: ulpi read failed for %d times\n",
-				__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-		return -1;
-	}
-
-	return 0;
-}
-
-static unsigned msm_hsusb_ulpi_read_with_reset(void __iomem *addr, unsigned reg)
-{
-	int temp;
-	unsigned res;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		res = ulpi_read(addr, reg);
-		if (res != -1)
-			return res;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	pr_err("%s: ulpi read failed for %d times\n",
-			__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-
-	return -1;
-}
-
-static int msm_hsusb_ulpi_write_with_reset(void __iomem *addr,
-		unsigned val, unsigned reg)
-{
-	int temp;
-	int res;
-
-	for (temp = 0; temp < ULPI_VERIFY_MAX_LOOP_COUNT; temp++) {
-		res = ulpi_write(addr, val, reg);
-		if (!res)
-			return 0;
-		msm_hsusb_apps_reset_phy();
-	}
-
-	pr_err("%s: ulpi write failed for %d times\n",
-			__func__, ULPI_VERIFY_MAX_LOOP_COUNT);
-	return -1;
-}
-
-static int msm_hsusb_phy_caliberate(void __iomem *addr)
-{
-	int ret;
-	unsigned res;
-
-	ret = msm_hsusb_phy_verify_access(addr);
-	if (ret)
-		return -ETIMEDOUT;
-
-	res = msm_hsusb_ulpi_read_with_reset(addr, ULPI_FUNC_CTRL_CLR);
-	if (res == -1)
-		return -ETIMEDOUT;
-
-	res = msm_hsusb_ulpi_write_with_reset(addr,
-			res | ULPI_SUSPENDM,
-			ULPI_FUNC_CTRL_CLR);
-	if (res)
-		return -ETIMEDOUT;
-
-	msm_hsusb_apps_reset_phy();
-
-	return msm_hsusb_phy_verify_access(addr);
-}
-
-#define USB_LINK_RESET_TIMEOUT      (msecs_to_jiffies(10))
-static int msm_hsusb_native_phy_reset(void __iomem *addr)
-{
-	u32 temp;
-	unsigned long timeout;
-
-	if (machine_is_qsd8x50_ffa() || machine_is_qsd8x50a_ffa())
-		return msm_hsusb_phy_reset();
-
-	msm_hsusb_apps_reset_link(1);
-	msm_hsusb_apps_reset_phy();
-	msm_hsusb_apps_reset_link(0);
-
-	/* select ULPI phy */
-	temp = (readl(USB_PORTSC) & ~PORTSC_PTS);
-	writel(temp | PORTSC_PTS_ULPI, USB_PORTSC);
-
-	if (msm_hsusb_phy_caliberate(addr))
-		return -1;
-
-	/* soft reset phy */
-	writel(USBCMD_RESET, USB_USBCMD);
-	timeout = jiffies + USB_LINK_RESET_TIMEOUT;
-	while (readl(USB_USBCMD) & USBCMD_RESET) {
-		if (time_after(jiffies, timeout)) {
-			pr_err("usb link reset timeout\n");
-			break;
-		}
-		msleep(1);
-	}
-
-	return 0;
-}
+static struct msm_usb_host_platform_data msm_usb_host_pdata = {
+	.phy_info	= (USB_PHY_INTEGRATED | USB_PHY_MODEL_180NM),
+};
 
 static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 };
@@ -1465,25 +1287,6 @@ static struct platform_device msm_wlan_ar6000_pm_device = {
         .resource       = NULL,
 };
 
-static int hsusb_rpc_connect(int connect)
-{
-	if (connect)
-		return msm_hsusb_rpc_connect();
-	else
-		return msm_hsusb_rpc_close();
-}
-
-static struct msm_otg_platform_data msm_otg_pdata = {
-	.rpc_connect	= hsusb_rpc_connect,
-	.phy_reset	= msm_hsusb_native_phy_reset,
-	.pmic_notif_init         = msm_pm_app_rpc_init,
-	.pmic_notif_deinit       = msm_pm_app_rpc_deinit,
-	.pmic_register_vbus_sn   = msm_pm_app_register_vbus_sn,
-	.pmic_unregister_vbus_sn = msm_pm_app_unregister_vbus_sn,
-	.pmic_enable_ldo         = msm_pm_app_enable_usb_ldo,
-};
-
-static struct msm_hsusb_gadget_platform_data msm_gadget_pdata;
 
 #ifdef CONFIG_SEMC_LOW_BATT_SHUTDOWN
 static struct lbs_platform_data lbs_data = {
@@ -1505,6 +1308,50 @@ static struct platform_device pmic_time_device = {
 };
 #endif
 
+static int hsusb_rpc_connect(int connect)
+{
+	if (connect)
+		return msm_hsusb_rpc_connect();
+	else
+		return msm_hsusb_rpc_close();
+}
+
+static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
+{
+	int ret;
+
+	if (init) {
+		ret = msm_pm_app_rpc_init(callback);
+	} else {
+		msm_pm_app_rpc_deinit(callback);
+		ret = 0;
+	}
+	return ret;
+}
+static int msm_hsusb_ldo_init(int init);
+static int msm_hsusb_ldo_enable(int enable);
+
+/* Driver(s) to be notified upon change in USB */
+static char *hsusb_chg_supplied_to[] = {
+};
+
+static struct msm_otg_platform_data msm_otg_pdata = {
+	.rpc_connect	= hsusb_rpc_connect,
+	.pmic_notif_init         = msm_hsusb_pmic_notif_init,
+	.pemp_level              = PRE_EMPHASIS_WITH_10_PERCENT,
+	.cdr_autoreset           = CDR_AUTO_RESET_DEFAULT,
+	.drv_ampl                = HS_DRV_AMPLITUDE_5_PERCENT,
+	.vbus_power		 = msm_hsusb_vbus_power,
+	.chg_vbus_draw		 = hsusb_chg_vbus_draw,
+	.chg_connected		 = hsusb_chg_connected,
+	.chg_init		 = hsusb_chg_init,
+	.phy_can_powercollapse	 = 1,
+	.ldo_init		 = msm_hsusb_ldo_init,
+	.ldo_enable		 = msm_hsusb_ldo_enable,
+};
+
+static struct msm_hsusb_gadget_platform_data msm_gadget_pdata;
+
 static struct platform_device *devices[] __initdata = {
 	&msm_wlan_ar6000_pm_device,
 	&msm_fb_device,
@@ -1516,7 +1363,14 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_nand,
 	&msm_device_i2c,
 	&qsd_device_spi,
-	&usb_mass_storage_device,
+/*
+#ifdef CONFIG_USB_FUNCTION
+	&mass_storage_device,
+#endif
+*/
+#ifdef CONFIG_USB_G_ANDROID
+	&android_usb_device,
+#endif
 	&msm_device_tssc,
 	&msm_audio_device,
 	&msm_device_uart1,
@@ -1554,27 +1408,115 @@ static void __init es209ra_init_irq(void)
 	msm_init_sirc();
 }
 
-/*
-static void kgsl_phys_memory_init(void)
+static void usb_mpp_init(void)
 {
-	request_mem_region(kgsl_resources[1].start,
-		resource_size(&kgsl_resources[1]), "kgsl");
+	unsigned rc;
+	unsigned mpp_usb = 20;
+
+	if (machine_is_qsd8x50_ffa()) {
+		rc = mpp_config_digital_out(mpp_usb,
+			MPP_CFG(MPP_DLOGIC_LVL_VDD,
+				MPP_DLOGIC_OUT_CTRL_HIGH));
+		if (rc)
+			pr_err("%s: configuring mpp pin"
+				"to enable 3.3V LDO failed\n", __func__);
+	}
 }
-*/
 
-static void __init es209ra_init_usb(void)
+/* TBD: 8x50 FFAs have internal 3p3 voltage regulator as opposed to
+ * external 3p3 voltage regulator on Surf platform. There is no way
+ * s/w can detect fi concerned regulator is internal or external to
+ * to MSM. Internal 3p3 regulator is powered through boost voltage
+ * regulator where as external 3p3 regulator is powered through VPH.
+ * So for internal voltage regulator it is required to power on
+ * boost voltage regulator first. Unfortunately some of the FFAs are
+ * re-worked to install external 3p3 regulator. For now, assuming all
+ * FFAs have 3p3 internal regulators and all SURFs have external 3p3
+ * regulator as there is no way s/w can determine if theregulator is
+ * internal or external. May be, we can implement this flag as kernel
+ * boot parameters so that we can change code behaviour dynamically
+ */
+static int regulator_3p3_is_internal;
+static struct vreg *vreg_5v;
+static struct vreg *vreg_3p3;
+static int msm_hsusb_ldo_init(int init)
 {
-	hs_clk = clk_get(NULL, "usb_hs_clk");
-	if (IS_ERR(hs_clk)) {
-		printk(KERN_ERR "%s: hs_clk clk get failed\n", __func__);
-		return;
+	if (init) {
+		if (regulator_3p3_is_internal) {
+			vreg_5v = vreg_get(NULL, "boost");
+			if (IS_ERR(vreg_5v))
+				return PTR_ERR(vreg_5v);
+			vreg_set_level(vreg_5v, 5000);
+		}
+
+		vreg_3p3 = vreg_get(NULL, "usb");
+		if (IS_ERR(vreg_3p3))
+			return PTR_ERR(vreg_3p3);
+		vreg_set_level(vreg_3p3, 3300);
+	} else {
+		if (regulator_3p3_is_internal)
+			vreg_put(vreg_5v);
+		vreg_put(vreg_3p3);
 	}
 
-	phy_clk = clk_get(NULL, "usb_phy_clk");
-	if (IS_ERR(phy_clk)) {
-		printk(KERN_ERR "%s: phy_clk clk get failed\n", __func__);
-		return;
+	return 0;
+}
+
+static int msm_hsusb_ldo_enable(int enable)
+{
+	static int ldo_status;
+	int ret;
+
+	if (ldo_status == enable)
+		return 0;
+
+	if (regulator_3p3_is_internal && (!vreg_5v || IS_ERR(vreg_5v)))
+		return -ENODEV;
+	if (!vreg_3p3 || IS_ERR(vreg_3p3))
+		return -ENODEV;
+
+	ldo_status = enable;
+
+	if (enable) {
+		if (regulator_3p3_is_internal) {
+			ret = vreg_enable(vreg_5v);
+			if (ret)
+				return ret;
+
+			/* power supply to 3p3 regulator can vary from
+			 * USB VBUS or VREG 5V. If the power supply is
+			 * USB VBUS cable disconnection cannot be
+			 * deteted. Select power supply to VREG 5V
+			 */
+			/* TBD: comeup with a better name */
+			ret = pmic_vote_3p3_pwr_sel_switch(1);
+			if (ret)
+				return ret;
+		}
+		ret = vreg_enable(vreg_3p3);
+
+		return ret;
+	} else {
+		if (regulator_3p3_is_internal) {
+			ret = vreg_disable(vreg_5v);
+			if (ret)
+				return ret;
+			ret = pmic_vote_3p3_pwr_sel_switch(0);
+			if (ret)
+				return ret;
+		}
+			ret = vreg_disable(vreg_3p3);
+
+			return ret;
 	}
+}
+
+static void __init qsd8x50_init_usb(void)
+{
+	usb_mpp_init();
+
+	if (machine_is_qsd8x50_ffa())
+		regulator_3p3_is_internal = 1;
 
 #ifdef CONFIG_USB_MSM_OTG_72K
 	platform_device_register(&msm_device_otg);
@@ -1586,6 +1528,25 @@ static void __init es209ra_init_usb(void)
 
 #ifdef CONFIG_USB_MSM_72K
 	platform_device_register(&msm_device_gadget_peripheral);
+#endif
+
+	if (machine_is_qsd8x50_ffa() || machine_is_qsd8x50a_ffa())
+		return;
+
+	vreg_usb = vreg_get(NULL, "boost");
+
+	if (IS_ERR(vreg_usb)) {
+		printk(KERN_ERR "%s: vreg get failed (%ld)\n",
+		       __func__, PTR_ERR(vreg_usb));
+		return;
+	}
+
+	platform_device_register(&msm_device_hsusb_otg);
+	msm_add_host(0, &msm_usb_host_pdata);
+#ifdef CONFIG_USB_FS_HOST
+	if (fsusb_gpio_init())
+		return;
+	msm_add_host(1, &msm_usb_host2_pdata);
 #endif
 }
 
@@ -1914,6 +1875,10 @@ static void __init es209ra_init(void)
 		msm_pm_data
 		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	msm_device_hsusb_peripheral.dev.platform_data = &msm_hsusb_pdata;
+
+	msm_otg_pdata.swfi_latency =
+		msm_pm_data
+		[MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT].latency;
 	msm_device_otg.dev.platform_data = &msm_otg_pdata;
 	msm_device_gadget_peripheral.dev.platform_data = &msm_gadget_pdata;
 
@@ -1925,7 +1890,9 @@ static void __init es209ra_init(void)
 #ifdef CONFIG_MSM_CAMERA
 	config_camera_off_gpios(); /* might not be necessary */
 #endif
-	es209ra_init_usb();
+	qsd8x50_init_usb();
+	hsusb_chg_set_supplicants(hsusb_chg_supplied_to,
+				  ARRAY_SIZE(hsusb_chg_supplied_to));
 	es209ra_init_mmc();
 	bt_power_init();
 	audio_gpio_init();

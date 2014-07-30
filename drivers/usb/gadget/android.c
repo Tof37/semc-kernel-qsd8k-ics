@@ -55,7 +55,6 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
-#include "f_dm.c"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -67,9 +66,6 @@ static const char longname[] = "Gadget Android";
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
-
-/* DM_PORT NUM : /dev/ttyGS* port number */
-#define DM_PORT_NUM            1
 
 struct android_usb_function {
 	char *name;
@@ -385,6 +381,10 @@ static int rndis_function_bind_config(struct android_usb_function *f,
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
+		rndis_iad_descriptor.bFunctionClass =
+						USB_CLASS_WIRELESS_CONTROLLER;
+		rndis_iad_descriptor.bFunctionSubClass = 0x01;
+		rndis_iad_descriptor.bFunctionProtocol = 0x03;
 		rndis_control_intf.bInterfaceClass =
 						USB_CLASS_WIRELESS_CONTROLLER;
 		rndis_control_intf.bInterfaceSubClass =	 0x01;
@@ -643,17 +643,6 @@ static struct android_usb_function accessory_function = {
 };
 
 
-static int dm_function_bind_config(struct android_usb_function *f,
-					struct usb_configuration *c)
-{
-	return dm_bind_config(c, DM_PORT_NUM);
-}
-
-static struct android_usb_function dm_function = {
-	.name           = "dm",
-	.bind_config    = dm_function_bind_config,
-};
-
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
 	&acm_function,
@@ -662,7 +651,6 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
-	&dm_function,
 	NULL
 };
 

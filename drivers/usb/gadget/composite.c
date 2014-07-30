@@ -1317,9 +1317,8 @@ int usb_composite_probe(struct usb_composite_driver *driver,
 	composite_driver.driver.name = driver->name;
 	composite = driver;
 	composite_gadget_bind = bind;
-	composite_driver.bind = composite_bind;
 
-	return usb_gadget_register_driver(&composite_driver);
+	return usb_gadget_probe_driver(&composite_driver, composite_bind);
 }
 
 /**

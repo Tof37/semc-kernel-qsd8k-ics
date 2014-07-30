@@ -23,6 +23,10 @@
 #include <linux/input.h>
 #include <linux/usb.h>
 
+/*ES209RA_CHANGE_S : 
+ * struct msm_acpu_clock_platform_data was minssed in kernel3.0 source
+ * If this structure will not need in kernel3.0, please remove 
+ */
 /* platform device data structures */
 struct msm_acpu_clock_platform_data {
 	uint32_t acpu_switch_time_us;
@@ -32,6 +36,7 @@ struct msm_acpu_clock_platform_data {
 	unsigned int max_vdd;
 	int (*acpu_set_vdd) (int mvolts);
 };
+
 
 struct msm_camera_io_ext {
 	uint32_t mdcphy;

@@ -780,6 +780,7 @@ struct usb_gadget_driver {
 	int			(*setup)(struct usb_gadget *,
 					const struct usb_ctrlrequest *);
 	void			(*disconnect)(struct usb_gadget *);
+	void			(*offline)(struct usb_gadget *);
 	void			(*suspend)(struct usb_gadget *);
 	void			(*resume)(struct usb_gadget *);
 
@@ -787,7 +788,20 @@ struct usb_gadget_driver {
 	struct device_driver	driver;
 };
 
-
+/**
+ * usb_gadget_probe_driver - probe a gadget driver
+ * @driver: the driver being registered
+ * @bind: the driver's bind callback
+ * Context: can sleep
+ *
+ * Call this in your gadget driver's module initialization function,
+ * to tell the underlying usb controller driver about your driver.
+ * The @bind() function will be called to bind it to a gadget before this
+ * registration call returns.  It's expected that the @bind() function will
+ * be in init sections.
+ */
+int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+                int (*bind)(struct usb_gadget *));
 
 /*-------------------------------------------------------------------------*/
 
@@ -895,8 +909,8 @@ static inline void usb_free_descriptors(struct usb_descriptor_header **v)
 /* utility wrapping a simple endpoint selection policy */
 
 extern struct usb_ep *usb_ep_autoconfig(struct usb_gadget *,
-			struct usb_endpoint_descriptor *);
+			struct usb_endpoint_descriptor *) __devinit;
 
-extern void usb_ep_autoconfig_reset(struct usb_gadget *);
+extern void usb_ep_autoconfig_reset(struct usb_gadget *) __devinit;
 
 #endif /* __LINUX_USB_GADGET_H */

@@ -215,6 +215,7 @@ config MACH_QSD8X50A_FFA
 	depends on ARCH_QSD8X50
 	depends on MSM_SOC_REV_A
 	depends on MSM_STACKED_MEMORY
+	select FB_MSM_HDPI
 	default y
 	bool "QSD8x50A FFA"
 	help

@@ -57,5 +57,4 @@ obj-$(CONFIG_USB_G_PRINTER)	+= g_printer.o
 obj-$(CONFIG_USB_MIDI_GADGET)	+= g_midi.o
 obj-$(CONFIG_USB_CDC_COMPOSITE) += g_cdc.o
 obj-$(CONFIG_USB_G_ANDROID)	+= g_android.o
-obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
 obj-$(CONFIG_USB_ANDROID_DIAG)  += f_diag.o

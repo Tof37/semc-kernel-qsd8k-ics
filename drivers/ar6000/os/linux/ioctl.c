@@ -2,7 +2,7 @@
 // <copyright file="ioctl.c" company="Atheros">
 //    Copyright (c) 2004-2009 Atheros Corporation.  All rights reserved.
 //    Copyright (C) 2010 Sony Ericsson Mobile Communications AB
-// 
+//
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 2 as
 // published by the Free Software Foundation;
@@ -1194,23 +1194,45 @@ ar6000_ioctl_setparam(AR_SOFTC_T *ar, int param, int value)
             }
             break;
         case IEEE80211_PARAM_UCASTCIPHER:
-            switch (value) {
-                case IEEE80211_CIPHER_AES_CCM:
+                /*
+                * SCRITCH FIX for HOSTAPD
+                * Ok so now we need to convert the way hostapd works into expected behavior
+                */
+
+            if (ar->arNextMode == AP_NETWORK)
+            {
+                pr_info("Setting Pairwise Crypto for AP mode");
+                if (value & (1 << IEEE80211_CIPHER_AES_CCM) )
+                {
                     ar->arPairwiseCrypto = AES_CRYPT;
-                    profChanged          = TRUE;
-                    break;
-                case IEEE80211_CIPHER_TKIP:
+                } else if( value & (1 << IEEE80211_CIPHER_TKIP)){
                     ar->arPairwiseCrypto = TKIP_CRYPT;
-                    profChanged          = TRUE;
-                    break;
-                case IEEE80211_CIPHER_WEP:
+                } else if (value & (1 << IEEE80211_CIPHER_WEP))
+                {
                     ar->arPairwiseCrypto = WEP_CRYPT;
-                    profChanged          = TRUE;
-                    break;
-                case IEEE80211_CIPHER_NONE:
+                }else{
                     ar->arPairwiseCrypto = NONE_CRYPT;
-                    profChanged          = TRUE;
-                    break;
+                }
+            }else{
+                pr_info("Setting Pairwise Crypto for STA mode");
+                switch (value) {
+                    case IEEE80211_CIPHER_AES_CCM:
+                        ar->arPairwiseCrypto = AES_CRYPT;
+                        profChanged          = TRUE;
+                        break;
+                    case IEEE80211_CIPHER_TKIP:
+                        ar->arPairwiseCrypto = TKIP_CRYPT;
+                        profChanged          = TRUE;
+                        break;
+                    case IEEE80211_CIPHER_WEP:
+                        ar->arPairwiseCrypto = WEP_CRYPT;
+                        profChanged          = TRUE;
+                        break;
+                    case IEEE80211_CIPHER_NONE:
+                        ar->arPairwiseCrypto = NONE_CRYPT;
+                        profChanged          = TRUE;
+                        break;
+                }
             }
             break;
         case IEEE80211_PARAM_UCASTKEYLEN:
