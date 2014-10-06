@@ -161,7 +161,7 @@ int cap_capget(struct task_struct *target, kernel_cap_t *effective,
  */
 static inline int cap_inh_is_capped(void)
 {
-#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
+//#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 
 	/* they are so limited unless the current task has the CAP_SETPCAP
 	 * capability
@@ -169,7 +169,7 @@ static inline int cap_inh_is_capped(void)
 	if (cap_capable(current, current_cred(), CAP_SETPCAP,
 			SECURITY_CAP_AUDIT) == 0)
 		return 0;
-#endif
+//#endif
 	return 1;
 }
 
@@ -227,8 +227,8 @@ static inline void bprm_clear_caps(struct linux_binprm *bprm)
 	bprm->cap_effective = false;
 }
 
-#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
-
+//#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
+//
 /**
  * cap_inode_need_killpriv - Determine if inode change affects privileges
  * @dentry: The inode/dentry in being changed with change marked ATTR_KILL_PRIV
@@ -409,7 +409,7 @@ out:
 	return rc;
 }
 
-#else
+/*#else
 int cap_inode_need_killpriv(struct dentry *dentry)
 {
 	return 0;
@@ -431,7 +431,7 @@ static inline int get_file_caps(struct linux_binprm *bprm, bool *effective)
 	bprm_clear_caps(bprm);
 	return 0;
 }
-#endif
+#endif*/
 
 /*
  * Determine whether a exec'ing process's new permitted capabilities should be
@@ -443,7 +443,7 @@ static inline int get_file_caps(struct linux_binprm *bprm, bool *effective)
  *
  *  Returns 1 if they should be limited, 0 if they are not.
  */
-static inline int cap_limit_ptraced_target(void)
+/*static inline int cap_limit_ptraced_target(void)
 {
 #ifndef CONFIG_SECURITY_FILE_CAPABILITIES
 	if (capable(CAP_SETPCAP))
@@ -451,7 +451,7 @@ static inline int cap_limit_ptraced_target(void)
 #endif
 	return 1;
 }
-
+*/
 /**
  * cap_bprm_set_creds - Set up the proposed credentials for execve().
  * @bprm: The execution parameters, including the proposed creds
@@ -501,9 +501,11 @@ int cap_bprm_set_creds(struct linux_binprm *bprm)
 			new->euid = new->uid;
 			new->egid = new->gid;
 		}
-		if (cap_limit_ptraced_target())
+		/*if (cap_limit_ptraced_target())
 			new->cap_permitted = cap_intersect(new->cap_permitted,
-							   old->cap_permitted);
+							   old->cap_permitted);*/
+			new->cap_permitted = cap_intersect(new->cap_permitted,
+						   old->cap_permitted);
 	}
 
 	new->suid = new->fsuid = new->euid;
@@ -717,7 +719,7 @@ int cap_task_fix_setuid(struct cred *new, const struct cred *old, int flags)
 	return 0;
 }
 
-#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
+//#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 /*
  * Rationale: code calling task_setscheduler, task_setioprio, and
  * task_setnice, assumes that
@@ -798,7 +800,7 @@ static long cap_prctl_drop(struct cred *new, unsigned long cap)
 	return 0;
 }
 
-#else
+/*#else
 int cap_task_setscheduler (struct task_struct *p, int policy,
 			   struct sched_param *lp)
 {
@@ -813,7 +815,7 @@ int cap_task_setnice (struct task_struct *p, int nice)
 	return 0;
 }
 #endif
-
+*/
 /**
  * cap_task_prctl - Implement process control functions for this security module
  * @option: The process control function requested
@@ -844,7 +846,7 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		error = !!cap_raised(new->cap_bset, arg2);
 		goto no_change;
 
-#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
+//#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 	case PR_CAPBSET_DROP:
 		error = cap_prctl_drop(new, arg2);
 		if (error < 0)
@@ -895,7 +897,7 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		error = new->securebits;
 		goto no_change;
 
-#endif /* def CONFIG_SECURITY_FILE_CAPABILITIES */
+//#endif /* def CONFIG_SECURITY_FILE_CAPABILITIES */
 
 	case PR_GET_KEEPCAPS:
 		if (issecure(SECURE_KEEP_CAPS))

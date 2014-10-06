@@ -107,16 +107,16 @@ extern struct group_info init_groups;
 #define INIT_IDS
 #endif
 
-#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
+//#ifdef CONFIG_SECURITY_FILE_CAPABILITIES
 /*
  * Because of the reduced scope of CAP_SETPCAP when filesystem
  * capabilities are in effect, it is safe to allow CAP_SETPCAP to
  * be available in the default configuration.
  */
 # define CAP_INIT_BSET  CAP_FULL_SET
-#else
+/*#else
 # define CAP_INIT_BSET  CAP_INIT_EFF_SET
-#endif
+#endif*/
 
 extern struct cred init_cred;
 
